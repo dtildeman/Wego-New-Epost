@@ -6,11 +6,11 @@
 </head> 
 <div id="boxOfPoo"></div> <!-- Detta .r objektet som vi fyller med data sen. -->
   <script>
-  $( document ).ready(function() {
-  $("#boxOfPoo").load("api.php");
-    var klockan_tick_tock = setInterval(function(){
-      $("#boxOfPoo").load("api.php");
-    },2000);
+        $(document).ready(function() {
+            $("#boxOfPoo").load("api.php");
+            setInterval(function() {
+                $("#boxOfPoo").load("api.php");
+            }, 2000
   });
   </script>
 </html>

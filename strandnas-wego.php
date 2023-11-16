@@ -1,62 +1,47 @@
 #!/usr/bin/php -q
 <?php
-$dbtable = 'strandnas';
-$dbuser = 'larmuser';
-$dbpass = 'Midsommar45!';
-$dbname = 'larm';
-$dbhost = 'server.fbkwego.xyz';
-$notify= 'daniel@tildeman.ax'; // an email address required in case of errors
-// read from stdin
+require_once 'config.php';
+
+// Function to safely get a specific header value
+function get_header_value($header_name, $lines) {
+    foreach ($lines as $line) {
+        if (preg_match("/^" . $header_name . ": (.*)/", $line, $matches)) {
+            return trim($matches[1]);
+        }
+    }
+    return null;
+}
+
+// Read from stdin (the incoming email)
 $fd = fopen("php://stdin", "r");
 $email = "";
 while (!feof($fd)) {
     $email .= fread($fd, 1024);
 }
 fclose($fd);
-// handle email
+
+// Handle email
 $lines = explode("\n", $email);
-// empty vars
-$from = "";
-$subject = "";
-$headers = "";
-$message = "";
-$splittingheaders = true;
-for ($i=0; $i < count($lines); $i++) {
-    if ($splittingheaders) {
-        // this is a header
-        $headers .= $lines[$i]."\n";
-        // look out for special headers
-        if (preg_match("/^Subject: (.*)/", $lines[$i], $matches)) {
-            $subject = $matches[1];
-        }
-        if (preg_match("/^From: (.*)/", $lines[$i], $matches)) {
-            $from = $matches[1];
-        }
-        if (preg_match("/^To: (.*)/", $lines[$i], $matches)) {
-            $to = $matches[1];
-        }
-    } else {
-        // not a header, but message
-        $message .= $lines[$i]."\n";
-    }
-    if (trim($lines[$i])=="") {
-        // empty line, header section has ended
-        $splittingheaders = false;
-    }
-}
-if ($conn = mysqli_connect($dbhost,$dbuser,$dbpass, $dbname, '32400')) {
-  if(!@mysqli_select_db($conn,$dbname))
-    mail($email,'Email Logger Error',"There was an error selecting the Strandnas email logger database.\n\n".mysqli_error($conn));
-  $from    = mysqli_real_escape_string($conn,$from);
-  $to    = mysqli_real_escape_string($conn,$to);
-  $subject = mysqli_real_escape_string($conn,$subject);
-  $headers = mysqli_real_escape_string($conn,$headers);
-  $message = mysqli_real_escape_string($conn,$message);
-  $email   = mysqli_real_escape_string($conn,$email);
-  $result = mysqli_query($conn,"INSERT INTO strandnas (`to`,`from`,`subject`,`headers`,`message`,`source`) VALUES('$to','$from','$subject','$headers','$message','$email')");
-  if (mysqli_affected_rows($conn) == 0)
-    mail($notify,'Email Logger Error',"There was an error inserting into the Strandnas database.\n\n".mysqli_error($conn));
+
+// Extracting headers and message
+$from = get_header_value('From', $lines);
+$subject = get_header_value('Subject', $lines);
+$to = get_header_value('To', $lines);
+
+// The rest of the email is the message
+$splitting_point = array_search('', $lines);
+$message = implode("\n", array_slice($lines, $splitting_point + 1));
+
+// Prepare and execute the SQL statement
+$stmt = $conn->prepare("INSERT INTO $dbtable (`to`, `from`, `subject`, `headers`, `message`, `source`) VALUES (?, ?, ?, ?, ?, ?)");
+$stmt->bind_param("ssssss", $to, $from, $subject, implode("\n", array_slice($lines, 0, $splitting_point)), $message, $email);
+
+if ($stmt->execute()) {
+    echo "Email logged successfully.";
 } else {
-  mail($notify,'Email Logger Error',"There was an error connecting the Strandnas database.\n\n".mysqli_error($conn));
+    error_log("Error inserting email into the database: " . $stmt->error);
 }
+
+$stmt->close();
+$conn->close();
 ?>

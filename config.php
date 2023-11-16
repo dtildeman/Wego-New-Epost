@@ -4,9 +4,11 @@ $dbpass = 'Midsommar45!';
 $dbname = 'larm'; 
 $dbhost = 'localhost'; 
 $dbtable = 'strandnas';
-   $conn = mysqli_connect($dbhost, $dbuser, $dbpass);
-   
-   if(! $conn ) {
-      die('Could not connect: ' . mysqli_error());
-   }
+
+$conn = mysqli_connect($dbhost, $dbuser, $dbpass, $dbname);
+
+if (!$conn) {
+    error_log("Database Connection Error: " . mysqli_connect_error());
+    exit; // Exit to avoid further execution on error
+}
 ?>
